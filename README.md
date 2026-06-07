@@ -19,7 +19,7 @@ pip install git+https://github.com/StructuresComp/mechview
 ## Use case 1 — quick and dirty
 
 Say you ran a simulation. You have 1000 time steps. At each step you have N nodes,
-each with an (x, y, z) position. You want a 3D animation in 5 minutes.
+each with an (x, y, z) position. You want a 3D animation and save it in a video.
 
 **Step 1:** Copy the viewer and a template into your working directory.
 

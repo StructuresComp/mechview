@@ -19,12 +19,17 @@ from mechview.generate_synthetic_shell import generate as generate_shell, main a
 
 
 def cmd_init(args):
-    src = importlib.resources.files("mechview") / "index.html"
-    dst = Path.cwd() / "index.html"
-    with importlib.resources.as_file(src) as p:
-        shutil.copy(p, dst)
-    print(f"index.html → {dst}")
-    print("Run `mechview rod` or `mechview shell` to generate data.js, then open index.html in Chrome.")
+    pkg = importlib.resources.files("mechview")
+    files = ["index.html", "export_rod_template.py", "export_shell_template.py"]
+    for name in files:
+        src = pkg / name
+        dst = Path.cwd() / name
+        with importlib.resources.as_file(src) as p:
+            shutil.copy(p, dst)
+        print(f"{name} → {dst}")
+    print()
+    print("Edit export_rod_template.py or export_shell_template.py with your data,")
+    print("run it to generate data.js, then open index.html in Chrome.")
 
 
 def main():
