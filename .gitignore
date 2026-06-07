@@ -1,0 +1,10 @@
+data.js
+__pycache__/
+*.pyc
+frames.zip
+frames/
+venv/
+*.egg-info/
+dist/
+build/
+*:Zone.Identifier
