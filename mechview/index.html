@@ -47,6 +47,8 @@
             background: rgba(255, 255, 255, 0.72);
             padding: 4px 14px;
             border-radius: 3px;
+            white-space: pre-line;     /* "\n" in a label starts a new line */
+            text-align: center;
             pointer-events: none;      /* never blocks mouse/orbit */
             display: none;             /* hidden when frame has no label */
         }
@@ -61,7 +63,7 @@
     <input type="range" id="slider" min="0" max="0" value="0" step="1">
     <span id="frameInfo">0 / 0</span>
     <button id="btnRecord">⏺ Record</button>
-    <span id="status">Loading data.json…</span>
+    <span id="status">Loading data.js…</span>
 </div>
 
 <!-- Three.js via CDN (ES module) -->
@@ -169,8 +171,9 @@ let objectColor  = null;   // set in loadData from data.color; null = use per-ty
 let currentFrame = 0;
 let playing      = false;
 let lastTick     = 0;
-let FPS          = 12;    // playback speed (frames per second)
+let FPS          = 12;    // playback speed (frames per second); data.fps overrides it
 let objectType   = 'rod'; // set in loadData; drives rod/shell dispatch
+let ghostStyle   = null;  // set in loadData from data.ghost; null = no ghost curve
 
 // ---------------------------------------------------------------------------
 // ROD / BEAM — CatmullRomCurve3 + TubeGeometry
@@ -200,6 +203,41 @@ function buildTube(nodeList) {
     tubeMesh.castShadow    = true;   // rod casts a shadow onto obstacles / floor
     tubeMesh.receiveShadow = true;   // rod receives shadows (e.g. from itself curling)
     scene.add(tubeMesh);
+}
+
+// ---------------------------------------------------------------------------
+// GHOST — optional second, translucent tube (e.g. a target or reference shape)
+//
+// Styled by data.ghost = {color, opacity, rod_radius}; drawn from each frame's
+// ghost_nodes. A frame without ghost_nodes shows no ghost. Rods / beams only.
+// ---------------------------------------------------------------------------
+
+let ghostMesh = null;
+
+function buildGhost(nodeList) {
+    if (ghostMesh) {
+        scene.remove(ghostMesh);
+        ghostMesh.geometry.dispose();
+        ghostMesh.material.dispose();
+        ghostMesh = null;
+    }
+    if (!ghostStyle || !nodeList || nodeList.length < 2) return;
+
+    const pts = nodeList.map(n => new THREE.Vector3(n[0], n[1], n[2] ?? 0));
+    const curve = new THREE.CatmullRomCurve3(pts);
+
+    const geo = new THREE.TubeGeometry(curve, pts.length * 8, ghostStyle.rod_radius ?? rodRadius, 12, false);
+    const mat = new THREE.MeshPhongMaterial({
+        color:       ghostStyle.color ?? 0x888888,
+        transparent: true,
+        opacity:     ghostStyle.opacity ?? 0.35,
+        depthWrite:  false,   // the rod stays visible through the ghost
+        shininess:   60,
+    });
+    ghostMesh = new THREE.Mesh(geo, mat);
+    ghostMesh.castShadow = false;
+    ghostMesh.renderOrder = 1;        // draw after the opaque rod
+    scene.add(ghostMesh);
 }
 
 // ---------------------------------------------------------------------------
@@ -268,6 +306,7 @@ function showFrame(idx) {
         updateShell(nodes);
     } else {
         buildTube(nodes);
+        buildGhost(frames[idx].ghost_nodes);
     }
 
     slider.value = idx;
@@ -366,7 +405,7 @@ btnRecord.addEventListener('click', async () => {
     // unlock UI
     [btnPlayPause, btnRecord, slider].forEach(el => el.disabled = false);
     btnRecord.classList.remove('recording');
-    statusEl.textContent = 'Done — extract zip, then: ffmpeg -framerate 30 -i frame_%06d.png -c:v libx264 -pix_fmt yuv420p out.mp4';
+    statusEl.textContent = `Done — extract zip, then: ffmpeg -framerate ${FPS} -i frame_%06d.png -c:v libx264 -pix_fmt yuv420p out.mp4`;
 });
 
 // ---------------------------------------------------------------------------
@@ -377,12 +416,14 @@ function loadData(data) {
     frames      = data.frames;
     objectType  = data.object_type;
     objectColor = data.color ?? null;
+    FPS         = data.fps ?? FPS;
 
     // Per-type initialisation
     if (objectType === 'shell' || objectType === 'plate') {
         initShell(data);
     } else {
-        rodRadius = data.rod_radius ?? 0.003;
+        rodRadius  = data.rod_radius ?? 0.003;
+        ghostStyle = data.ghost ?? null;
     }
 
     // Obstacles — each is an axis-aligned box {center:[x,y,z], size:[w,h,d]}
@@ -398,9 +439,13 @@ function loadData(data) {
         scene.add(mesh);
     }
 
-    // Camera default — shells lie in the X-Z plane so look from above;
+    // Camera — data.camera = {position, target} if given. Otherwise the default:
+    // shells lie in the X-Z plane so look from above;
     // rods/beams hang vertically so look from the side centred on the wall.
-    if (objectType === 'shell' || objectType === 'plate') {
+    if (data.camera) {
+        camera.position.set(...data.camera.position);
+        orbitControls.target.set(...data.camera.target);
+    } else if (objectType === 'shell' || objectType === 'plate') {
         camera.position.set(0.6, 0.9, 1.0);
         orbitControls.target.set(0, 0, 0);
     } else {

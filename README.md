@@ -89,16 +89,32 @@ const MECHVIEW_DATA = {
     { "center": [0.0, -1.05, 0.0], "size": [2.0, 0.04, 2.0] }
   ],
 
+  "fps":    12,            // optional — playback speed, frames per second (default 12)
+  "camera": {              // optional — initial view (default: looking along -z at the rod)
+    "position": [0.8, 0.6, 1.6],
+    "target":   [0.0, 0.0, 0.0]
+  },
+  "ghost": {               // optional — style of a second, translucent tube drawn from
+    "color":      4491212, //   each frame's "ghost_nodes" (e.g. a target shape)
+    "opacity":    0.35,
+    "rod_radius": 0.015
+  },
+
   "frames": [
     {
-      "t":     0.0,                             // time (display only)
-      "nodes": [[x0,y0,z0], [x1,y1,z1], ...],  // exactly nv entries, 0-based
-      "label": "Step 0: initial state"          // optional overlay text
-    },
+      "t":           0.0,                             // time (display only)
+      "nodes":       [[x0,y0,z0], [x1,y1,z1], ...],  // exactly nv entries, 0-based
+      "label":       "Step 0\ninitial state",         // optional overlay text; "\n" = new line
+      "ghost_nodes": [[x0,y0,z0], ...]                // optional — the ghost tube for this
+    },                                                //   frame (any number of nodes >= 2)
     ...
   ]
 };
 ```
+
+Three.js is y-up: if your simulation has z up, rotate the coordinates before exporting,
+e.g. (x, y, z) → (x, z, −y). Do not just swap y and z: that is a reflection, which mirrors
+the shape (a right-handed helix would look left-handed).
 
 ## Schema — shell / plate
 
@@ -196,7 +212,9 @@ mechview shell [options]  generate synthetic shell/plate data.js (waving plate)
    unzip frames.zip -d frames/
    ffmpeg -framerate 12 -i frames/frame_%06d.png -c:v libx264 -pix_fmt yuv420p output.mp4
    ```
-   `-framerate 12` matches the viewer's default playback speed (`FPS = 12` in `index.html`).
+   `-framerate 12` matches the viewer's default playback speed (`FPS = 12` in `index.html`);
+   if `data.js` sets `"fps"`, use that value. The status line after recording shows the
+   command with the right frame rate.
 
 ---
 
@@ -206,7 +224,7 @@ Open `index.html` — every visual parameter has a comment next to it.
 
 | What to change | Where in `index.html` |
 |---|---|
-| Playback speed | `let FPS = 12;` |
+| Playback speed | `let FPS = 12;` (or `"fps"` in `data.js`) |
 | Background colour | `scene.background = new THREE.Color(...)` |
 | Ambient light intensity | `new THREE.AmbientLight(0xffffff, 0.28)` — second arg |
 | Shadow sharpness | `spotLight.penumbra` (0 = hard, 1 = soft) |
