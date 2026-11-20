@@ -174,6 +174,7 @@ let lastTick     = 0;
 let FPS          = 12;    // playback speed (frames per second); data.fps overrides it
 let objectType   = 'rod'; // set in loadData; drives rod/shell dispatch
 let ghostStyle   = null;  // set in loadData from data.ghost; null = no ghost curve
+let curveStyles  = [];    // set in loadData from data.curves; [] = no extra curves
 
 // ---------------------------------------------------------------------------
 // ROD / BEAM — CatmullRomCurve3 + TubeGeometry
@@ -238,6 +239,47 @@ function buildGhost(nodeList) {
     ghostMesh.castShadow = false;
     ghostMesh.renderOrder = 1;        // draw after the opaque rod
     scene.add(ghostMesh);
+}
+
+// ---------------------------------------------------------------------------
+// CURVES — optional extra thin tubes (e.g. a stripe painted along the rod, a marker)
+//
+// Styled by data.curves = [{color, opacity, rod_radius}, ...]; frame.curves[k] holds the
+// nodes of curve k in that frame ([[x,y,z], ...]; 2 nodes = a straight segment). A missing
+// or empty entry draws nothing. Rods / beams only.
+// ---------------------------------------------------------------------------
+
+let curveMeshes = [];
+
+function buildCurves(nodeLists) {
+    for (const mesh of curveMeshes) {
+        scene.remove(mesh);
+        mesh.geometry.dispose();
+        mesh.material.dispose();
+    }
+    curveMeshes = [];
+    if (!curveStyles.length || !nodeLists) return;
+
+    curveStyles.forEach((style, k) => {
+        const nodeList = nodeLists[k];
+        if (!nodeList || nodeList.length < 2) return;
+        const pts = nodeList.map(n => new THREE.Vector3(n[0], n[1], n[2] ?? 0));
+        const curve = pts.length > 2 ? new THREE.CatmullRomCurve3(pts) : new THREE.LineCurve3(pts[0], pts[1]);
+        const opacity = style.opacity ?? 1.0;
+        const geo = new THREE.TubeGeometry(curve, Math.max(4, pts.length * 8), style.rod_radius ?? 0.3 * rodRadius, 8, false);
+        const mat = new THREE.MeshPhongMaterial({
+            color:       style.color ?? 0x222222,
+            transparent: opacity < 1,
+            opacity:     opacity,
+            depthWrite:  opacity >= 1,
+            shininess:   60,
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow  = opacity >= 1;
+        mesh.renderOrder = 2;
+        scene.add(mesh);
+        curveMeshes.push(mesh);
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -307,6 +349,7 @@ function showFrame(idx) {
     } else {
         buildTube(nodes);
         buildGhost(frames[idx].ghost_nodes);
+        buildCurves(frames[idx].curves);
     }
 
     slider.value = idx;
@@ -422,8 +465,9 @@ function loadData(data) {
     if (objectType === 'shell' || objectType === 'plate') {
         initShell(data);
     } else {
-        rodRadius  = data.rod_radius ?? 0.003;
-        ghostStyle = data.ghost ?? null;
+        rodRadius   = data.rod_radius ?? 0.003;
+        ghostStyle  = data.ghost ?? null;
+        curveStyles = data.curves ?? [];
     }
 
     // Obstacles — each is an axis-aligned box {center:[x,y,z], size:[w,h,d]}

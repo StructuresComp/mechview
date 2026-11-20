@@ -99,14 +99,21 @@ const MECHVIEW_DATA = {
     "opacity":    0.35,
     "rod_radius": 0.015
   },
+  "curves": [              // optional — styles of extra thin tubes drawn from each frame's
+    { "color": 1710617, "opacity": 1.0, "rod_radius": 0.004 },  //   "curves" (e.g. a stripe
+    { "color": 1710617, "opacity": 1.0, "rod_radius": 0.010 }   //   along the rod, a marker)
+  ],
 
   "frames": [
     {
       "t":           0.0,                             // time (display only)
       "nodes":       [[x0,y0,z0], [x1,y1,z1], ...],  // exactly nv entries, 0-based
       "label":       "Step 0\ninitial state",         // optional overlay text; "\n" = new line
-      "ghost_nodes": [[x0,y0,z0], ...]                // optional — the ghost tube for this
-    },                                                //   frame (any number of nodes >= 2)
+      "ghost_nodes": [[x0,y0,z0], ...],               // optional — the ghost tube for this
+                                                      //   frame (any number of nodes >= 2)
+      "curves":      [[[x,y,z], ...], [[x,y,z], [x,y,z]]]  // optional — nodes of curve k (as
+    },                                                //   styled above); 2 nodes = a straight
+                                                      //   segment; [] or missing = not drawn
     ...
   ]
 };
